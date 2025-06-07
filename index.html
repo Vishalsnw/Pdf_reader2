@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PageNest - Immersive PDF Reader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Baskerville:ital@0;1&family=EB+Garamond:ital,wght@0,400;0,700;1,400&display=swap');
+        
+        :root {
+            --paper-light: #f8f3e4;
+            --paper-dark: #1a1918;
+            --book-shadow: rgba(0, 0, 0, 0.25);
+            --toolbar-bg: rgba(255, 255, 255, 0.95);
+            --toolbar-dark-bg: rgba(0, 0, 0, 0.9);
+            --page-gutter: 15px;
+            --page-color: #fff5e1;
+            --page-dark-color: #1f1e1c;
+            --page-border: #d4c9a8;
+            --page-border-dark: #2d2a24;
+            --text-light: #333333;
+            --text-dark: #f0f0f0;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Baskerville', 'EB Garamond', serif;
+        }
+        
+        body {
+            background-color: #e3d9c6;
+            transition: background-color 0.3s ease;
+        }
+        
+        body.dark-mode {
+            background-color: #121110;
+        }
+        
+        .mobile-container {
+            width: 100vw;
+            max-width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        /* SPLASH SCREEN */
+        .splash-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #4c6ef5 0%, #228be6 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+            transition: opacity 0.8s ease, transform 0.8s ease;
+        }
+        
+        .splash-logo {
+            width: 80px;
+            height: 80px;
+            background: white;
+            border-radius: 20%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            animation: pulse 2s infinite;
+        }
+        
+        .splash-text {
+            font-size: 36px;
+            font-weight: 700;
+            color: white;
+            letter-spacing: 1px;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.9; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        /* LIBRARY VIEW */
+        .library-view {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--paper-light);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            transition: transform 0.4s ease;
+            transform: translateX(0);
+            z-index: 10;
+        }
+        
+        body.dark-mode .library-view {
+            background-color: var(--paper-dark);
+        }
+        
+        .library-view.hidden {
+            transform: translateX(100%);
+        }
+        
+        /* RECENTLY OPENED */
+        .recent-section {
+            margin-bottom: 25px;
+        }
+        
+        .section-header {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-light);
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        body.dark-mode .section-header {
+            color: var(--text-dark);
+        }
+        
+        .recent-carousel {
+            display: flex;
+            gap: 15px;
+            overflow-x: auto;
+            padding: 10px 0 20px;
+            scrollbar-width: none;
+        }
+        
+        .recent-carousel::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .recent-book {
+            min-width: 100px;
+            max-width: 100px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: transform 0.2s ease;
+            position: relative;
+        }
+        
+        .recent-book:hover {
+            transform: translateY(-5px);
+        }
+        
+        .recent-book-img {
+            height: 130px;
+            background: linear-gradient(45deg, #64a3fa, #297fff);
+            position: relative;
+        }
+        
+        .recent-book-title {
+            padding: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-light);
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        
+        body.dark-mode .recent-book-title {
+            color: var(--text-dark);
+        }
+        
+        .recent-book::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.2));
+            z-index: 2;
+        }
+        
+        /* SELECT PDF BUTTON */
+        .select-pdf-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            flex: 1;
+            padding: 30px 20px;
+        }
+        
+        .select-pdf-btn {
+            background: linear-gradient(to right, #4361ee, #3a0ca3);
+            color: white;
+            padding: 16px 32px;
+            border-radius: 40px;
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 10px 30px rgba(67, 97, 238, 0.3);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .select-pdf-btn:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(67, 97, 238, 0.4);
+        }
+        
+        .upload-icon {
+            font-size: 28px;
+        }
+        
+        /* READER VIEW */
+        .reader-view {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+            transform: translateX(-100%);
+            overflow: hidden;
+            z-index: 20;
+            transition: transform 0.4s ease;
+        }
+        
+        .reader-view.active {
+            transform: translateX(0);
+        }
+        
+        /* TOOLBARS */
+        .toolbar {
+            position: absolute;
+            left: 0;
+            right: 0;
+            padding: 15px var(--page-gutter);
+            display: flex;
+            align-items: center;
+            transition: all 0.3s ease;
+            z-index: 30;
+            background-color: var(--toolbar-bg);
+            backdrop-filter: blur(10px);
+        }
+        
+        body.dark-mode .toolbar {
+            background-color: var(--toolbar-dark-bg);
+        }
+        
+        .toolbar-top {
+            top: 0;
+            padding-top: 10px;
+            padding-bottom: 10px;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+        
+        body.dark-mode .toolbar-top {
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .toolbar-top.hidden, .toolbar-bottom.hidden {
+            transform: translateY(-100%);
+        }
+        
+        .toolbar-bottom {
+            bottom: 0;
+            justify-content: space-around;
+            border-top: 1px solid rgba(0,0,0,0.05);
+        }
+        
+        body.dark-mode .toolbar-bottom {
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .toolbar-bottom.hidden {
+            transform: translateY(100%);
+        }
+        
+        .toolbar-btn {
+            background: none;
+            border: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .toolbar-btn:hover {
+            background-color: rgba(0,0,0,0.05);
+        }
+        
+        body.dark-mode .toolbar-btn:hover {
+            background-color: rgba(255,255,255,0.1);
+        }
+        
+        .toolbar-icon {
+            font-size: 20px;
+            color: var(--text-light);
+        }
+        
+        body.dark-mode .toolbar-icon {
+            color: var(--text-dark);
+        }
+        
+        .toolbar-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-light);
+            max-width: 50%;
+            text-overflow: ellipsis;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+        
+        body.dark-mode .toolbar-title {
+            color: var(--text-dark);
+        }
+        
+        /* BOOK CONTAINER */
+        .book-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 65px 0;
+        }
+        
+        .page-container {
+            display: flex;
+            height: 100%;
+            max-height: calc(100% - 40px);
+            position: relative;
+            perspective: 2000px;
+        }
+        
+        /* PAGES */
+        .page {
+            position: relative;
+            background-color: var(--page-color);
+            width: calc(100% - (var(--page-gutter) * 2));
+            height: 100%;
+            max-height: 100%;
+            border: 1px solid var(--page-border);
+            box-shadow: 0 15px 50px var(--book-shadow);
+            overflow: hidden;
+            padding: 30px;
+            transition: all 0.5s ease;
+        }
+        
+        body.dark-mode .page {
+            background-color: var(--page-dark-color);
+            border: 1px solid var(--page-border-dark);
+        }
+        
+        .page-text {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            text-align: justify;
+            letter-spacing: 0.3px;
+            color: var(--text-light);
+            height: 100%;
+            overflow-y: auto;
+            padding-right: 10px;
+            scrollbar-width: thin;
+        }
+        
+        body.dark-mode .page-text {
+            color: var(--text-dark);
+        }
+        
+        .page-text::-webkit-scrollbar {
+            width: 4px;
+        }
+        
+        .page-text::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .page-text::-webkit-scrollbar-thumb {
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 20px;
+        }
+        
+        body.dark-mode .page-text::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        /* PAGE SHADOW EFFECT */
+        .page::before {
+            content: '';
+            position: absolute;
+            top: 15px;
+            right: -3px;
+            bottom: 15px;
+            width: 10px;
+            background: linear-gradient(to left, rgba(0,0,0,0.03) 0%, transparent 100%);
+            transform: scale(1, 0.96);
+            transform-origin: right center;
+            z-index: 2;
+        }
+        
+        .page::after {
+            content: '';
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            right: 5px;
+            bottom: 5px;
+            background-image: linear-gradient(to bottom, rgba(200, 200, 200, 0.05) 0%, rgba(255, 255, 255, 0) 20%), url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" opacity="0.05"><rect fill="none" width="100" height="100"/><path d="M0,50 Q25,40 50,50 T100,50" stroke="gray" stroke-width="0.5" fill="none"/></svg>');
+            background-size: 100%, 200px 200px;
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        body.dark-mode .page::after {
+            background-image: linear-gradient(to bottom, rgba(50, 50, 50, 0.05) 0%, rgba(10, 10, 10, 0) 20%), url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" opacity="0.05"><rect fill="none" width="100" height="100"/><path d="M0,50 Q25,40 50,50 T100,50" stroke="gray" stroke-width="0.5" fill="none"/></svg>');
+        }
+        
+        /* DUAL PAGE LAYOUT */
+        .dual-pages {
+            display: flex;
+            gap: 1px;
+        }
+        
+        .page-left {
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+            border-right: none;
+        }
+        
+        .page-right {
+            border-top-left-radius: 0;
+            border-bottom-left-radius: 0;
+            border-left: none;
+        }
+        
+        .dual-pages .page::before {
+            display: none;
+        }
+        
+        .dual-pages .page-left::after {
+            background: linear-gradient(to right, rgba(0,0,0,0.02) 0%, transparent 20%);
+        }
+        
+        .dual-pages .page-right::after {
+            background: linear-gradient(to left, rgba(0,0,0,0.02) 0%, transparent 20%);
+        }
+        
+        .page-seam {
+            position: absolute;
+            left: 50%;
+            top: 15px;
+            bottom: 15px;
+            width: 0px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
+            transform: translateX(-50%);
+            z-index: 2;
+        }
+        
+        /* NAVIGATION SIDEBAR */
+        .nav-sidebar {
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 300px;
+            background-color: var(--toolbar-bg);
+            backdrop-filter: blur(20px);
+            z-index: 40;
+            padding: 60px 20px 20px;
+            transform: translateX(100%);
+            transition: transform 0.4s ease;
+            box-shadow: -5px 0 30px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+        }
+        
+        body.dark-mode .nav-sidebar {
+            background-color: var(--toolbar-dark-bg);
+        }
+        
+        .nav-sidebar.active {
+            transform: translateX(0);
+        }
+        
+        .nav-header {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-light);
+            margin-bottom: 25px;
+        }
+        
+        body.dark-mode .nav-header {
+            color: var(--text-dark);
+        }
+        
+        .close-nav-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        
+        /* PAGE SLIDER */
+        .progress-container {
+            position: absolute;
+            bottom: 65px;
+            left: 0;
+            right: 0;
+            padding: 0 var(--page-gutter);
+            transition: all 0.3s ease;
+            z-index: 35;
+            opacity: 1;
+            pointer-events: all;
+        }
+        
+        .progress-container.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background-color: var(--toolbar-bg);
+            backdrop-filter: blur(20px);
+            border-radius: 50px;
+            padding: 10px 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        body.dark-mode .slider-container {
+            background-color: var(--toolbar-dark-bg);
+        }
+        
+        .page-indicator {
+            font-size: 14px;
+            color: var(--text-light);
+            min-width: 50px;
+        }
+        
+        body.dark-mode .page-indicator {
+            color: var(--text-dark);
+        }
+        
+        input[type="range"] {
+            flex: 1;
+            height: 4px;
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.1);
+            outline: none;
+            appearance: none;
+        }
+        
+        body.dark-mode input[type="range"] {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: linear-gradient(to right, #4361ee, #3a0ca3);
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(67, 97, 238, 0.4);
+        }
+        
+        /* FONT SIZE CONTROLS */
+        .font-controls {
+            position: absolute;
+            bottom: 65px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--toolbar-bg);
+            backdrop-filter: blur(20px);
+            border-radius: 30px;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            gap: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            z-index: 35;
+            transition: all 0.3s ease;
+            pointer-events: all;
+        }
+        
+        body.dark-mode .font-controls {
+            background: var(--toolbar-dark-bg);
+        }
+        
+        .font-controls.hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: translate(-50%, 10px);
+        }
+        
+        .font-btn {
+            background: none;
+            border: none;
+            font-size: 22px;
+            color: var(--text-light);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        body.dark-mode .font-btn {
+            color: var(--text-dark);
+        }
+        
+        .font-btn:hover {
+            color: #4361ee;
+        }
+        
+        .font-value {
+            font-size: 18px;
+            min-width: 30px;
+            text-align: center;
+            color: var(--text-light);
+        }
+        
+        body.dark-mode .font-value {
+            color: var(--text-dark);
+        }
+        
+        /* BOOKMARK OVERLAY */
+        .bookmark-overlay {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            font-size: 36px;
+            color: #4361ee;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            transition: all 0.5s ease;
+            z-index: 25;
+        }
+        
+        .bookmark-overlay.active {
+            opacity: 1;
+            transform: translateY(-10px);
+        }
+        
+        /* UTILITY CLASSES */
+        .hidden {
+            display: none;
+        }
+        
+        .text-xs {
+            font-size: 0.8rem;
+        }
+        .text-sm {
+            font-size: 0.9rem;
+        }
+        .text-base {
+            font-size: 1rem;
+        }
+        .text-lg {
+            font-size: 1.1rem;
+        }
+        .text-xl {
+            font-size: 1.2rem;
+        }
+        .text-2xl {
+            font-size: 1.3rem;
+        }
+        
+        .leading-tight {
+            line-height: 1.5;
+        }
+        .leading-normal {
+            line-height: 1.7;
+        }
+        .leading-loose {
+            line-height: 1.9;
+        }
+        
+        /* PAGE TURN ANIMATION */
+        .page-turn {
+            position: relative;
+            perspective: 2000px;
+        }
+        
+        .page-animating {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 50%;
+            height: 100%;
+            transform-origin: left center;
+            animation: pageTurn 0.8s ease-out;
+            z-index: 15;
+            background: linear-gradient(to right, #e9d8b5, #e9d8b5);
+            border-left: 1px solid #d4c9a8;
+            box-shadow: 10px 0 30px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            padding: 30px;
+        }
+        
+        body.dark-mode .page-animating {
+            background: linear-gradient(to right, #1e1d1b, #1e1d1b);
+            border-left: 1px solid #2d2a24;
+        }
+        
+        @keyframes pageTurn {
+            0% {
+                transform: rotateY(0deg) scaleX(1);
+                opacity: 1;
+            }
+            50% {
+                transform: rotateY(-90deg) scaleX(0.95);
+                opacity: 0.9;
+            }
+            100% {
+                transform: rotateY(-180deg) scaleX(0.9);
+                opacity: 0.7;
+            }
+        }
+        
+        /* NOTES AND HIGHLIGHTS */
+        .highlight {
+            background-color: rgba(255, 255, 0, 0.3);
+            cursor: pointer;
+            position: relative;
+            padding: 0 2px;
+            border-radius: 2px;
+        }
+        
+        .highlight-popup {
+            position: absolute;
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            z-index: 100;
+            min-width: 200px;
+            display: none;
+        }
+        
+        .highlight.active + .highlight-popup {
+            display: block;
+        }
+        
+        /* RESPONSIVE DESIGN */
+        @media (min-aspect-ratio: 1/1) {
+            .book-container {
+                padding: 70px 20px;
+            }
+            
+            .page {
+                width: calc(50% - (var(--page-gutter) * 2));
+                height: 95%;
+            }
+            
+            .dual-pages {
+                display: flex;
+            }
+            
+            .single-page {
+                display: none;
+            }
+        }
+        
+        @media (max-aspect-ratio: 1/1) {
+            .dual-pages {
+                display: none;
+            }
+            
+            .single-page {
+                display: flex;
+            }
+        }
+    </style>
+</head>
+<body class="light-mode">
+    <div class="mobile-container">
+        <!-- Splash Screen -->
+        <div class="splash-screen" id="splash-screen">
+            <div class="splash-logo">
+                <i class="fas fa-book-open text-blue-600 text-4xl"></i>
+            </div>
+            <div class="splash-text">PageNest</div>
+        </div>
+        
+        <!-- Library View -->
+        <div class="library-view" id="library-view">
+            <div class="recent-section">
+                <div class="section-header">
+                    <div>Recently Opened</div>
+                    <div class="text-blue-500 text-sm">See All</div>
+                </div>
+                
+                <div class="recent-carousel">
+                    <div class="recent-book">
+                        <div class="recent-book-img"></div>
+                        <div class="recent-book-title">Design Principles</div>
+                    </div>
+                    <div class="recent-book">
+                        <div class="recent-book-img" style="background: linear-gradient(45deg, #48bf91, #128a60);"></div>
+                        <div class="recent-book-title">Nature Journal</div>
+                    </div>
+                    <div class="recent-book">
+                        <div class="recent-book-img" style="background: linear-gradient(45deg, #f8961e, #d85730);"></div>
+                        <div class="recent-book-title">History of Rome</div>
+                    </div>
+                    <div class="recent-book">
+                        <div class="recent-book-img" style="background: linear-gradient(45deg, #9d4edd, #5a189a);"></div>
+                        <div class="recent-book-title">AI Research</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="select-pdf-area">
+                <div class="text-2xl font-semibold text-gray-600 text-center">Your Digital Library</div>
+                <div class="text-gray-500 text-center px-10">
+                    Add PDF files to your collection and enjoy a natural reading experience with realistic page effects
+                </div>
+                <button class="select-pdf-btn" id="select-pdf-btn">
+                    <i class="fas fa-file-upload upload-icon"></i>
+                    Select PDF
+                </button>
+            </div>
+        </div>
+        
+        <!-- Reader View -->
+        <div class="reader-view" id="reader-view">
+            <!-- Top Toolbar -->
+            <div class="toolbar toolbar-top" id="top-toolbar">
+                <button class="toolbar-btn" id="back-btn">
+                    <i class="fas fa-arrow-left toolbar-icon"></i>
+                </button>
+                <div class="toolbar-title">Introduction to Typography</div>
+                <button class="toolbar-btn" id="toc-btn">
+                    <i class="fas fa-list toolbar-icon"></i>
+                </button>
+            </div>
+            
+            <!-- Book Container -->
+            <div class="book-container" id="book-container">
+                <!-- Dual Pages (Landscape) -->
+                <div class="page-container dual-pages">
+                    <div class="page page-left">
+                        <div class="page-text leading-normal text-base" id="page-left">
+                            <h2 class="mb-4 font-bold">Chapter One: The Art of Letterforms</h2>
+                            
+                            <p class="mb-4">Typography is the art and technique of arranging type to make written language legible, readable, and appealing when displayed. The arrangement of type involves selecting typefaces, point sizes, line lengths, line-spacing, and letter-spacing, and adjusting the space between pairs of letters.</p>
+                            
+                            <p class="mb-4">The term typography is also applied to the style, arrangement, and appearance of the letters, numbers, and symbols created by the process. Type design is a closely related craft, sometimes considered part of typography; most typographers do not design typefaces, and some type designers do not consider themselves typographers.</p>
+                            
+                            <p class="mb-4">Typography has long been a vital part of promotional material and advertising. Designers often use typography to set a theme and mood in an advertisement; for example, using bold, large text to convey a particular message to the reader. Type is often used to draw attention to a particular advertisement, combined with efficient use of color, shapes, and images.</p>
+                            
+                            <p class="mb-4">With the advent of the web and mobile devices, typography has become an essential aspect of digital interfaces. Web typography is fraught with challenges and limitations, yet continues to advance rapidly. Responsive typography automatically adapts to different screen sizes, ensuring optimal readability across devices.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="page page-right">
+                        <div class="page-text leading-normal text-base" id="page-right">
+                            <h2 class="mb-4 font-bold">Principles of Good Typography</h2>
+                            
+                            <p class="mb-4">The power of typography lies not only in what it says but how it says it. Beyond conveying information, typography sets the tone, mood, and personality of content. Thoughtful typography decisions improve readability, establish hierarchy, guide the reader, and create memorable visual experiences.</p>
+                            
+                            <p class="mb-4">Legibility is a fundamental principle - how easily characters can be distinguished from each other. Sans-serif typefaces like Helvetica often excel at small sizes on screens due to their clean, simple shapes. Readability concerns how comfortably text can be read and understood, encompassing factors like line length, spacing, color contrast, and alignment.</p>
+                            
+                            <p class="mb-4">Hierarchy establishes importance through contrast. Size, weight, color, and spacing guide readers through content flows. Consistent hierarchy creates rhythm and establishes relationships between elements. Type scales based on mathematical ratios help create harmonious hierarchies.</p>
+                            
+                            <p class="mb-4">Whitespace acts as a visual breathing room, grouping related elements and separating distinct sections. Generous margins, paragraph spacing, line-height and letter-spacing all contribute to an open, readable texture that's comfortable for extended reading. Proper alignment creates connections and clean sight-lines.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="page-seam"></div>
+                </div>
+                
+                <!-- Single Page (Portrait) -->
+                <div class="page-container single-page">
+                    <div class="page">
+                        <div class="page-text leading-normal text-base" id="single-page">
+                            <h2 class="mb-4 font-bold">Chapter One: The Art of Letterforms</h2>
+                            
+                            <p class="mb-4">Typography is the art and technique of arranging type to make written language legible, readable, and appealing when displayed. The arrangement of type involves selecting typefaces, point sizes, line lengths, line-spacing, and letter-spacing, and adjusting the space between pairs of letters.</p>
+                            
+                            <p class="mb-4">The term typography is also applied to the style, arrangement, and appearance of the letters, numbers, and symbols created by the process. Type design is a closely related craft, sometimes considered part of typography; most typographers do not design typefaces, and some type designers do not consider themselves typographers.</p>
+                            
+                            <p class="mb-4">Typography has long been a vital part of promotional material and advertising. Designers often use typography to set a theme and mood in an advertisement; for example, using bold, large text to convey a particular message to the reader. Type is often used to draw attention to a particular advertisement, combined with efficient use of color, shapes, and images.</p>
+                            
+                            <h2 class="mb-4 mt-8 font-bold">Principles of Good Typography</h2>
+                            
+                            <p class="mb-4">The power of typography lies not only in what it says but how it says it. Beyond conveying information, typography sets the tone, mood, and personality of content. Thoughtful typography decisions improve readability, establish hierarchy, guide the reader, and create memorable visual experiences.</p>
+                            
+                            <p class="mb-4">Legibility is a fundamental principle - how easily characters can be distinguished from each other. Sans-serif typefaces like Helvetica often excel at small sizes on screens due to their clean, simple shapes. Readability concerns how comfortably text can be read and understood, encompassing factors like line length, spacing, color contrast, and alignment.</p>
+                            
+                            <p class="mb-4">Hierarchy establishes importance through contrast. Size, weight, color, and spacing guide readers through content flows. Consistent hierarchy creates rhythm and establishes relationships between elements. Type scales based on mathematical ratios help create harmonious hierarchies.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Navigation Sidebar -->
+            <div class="nav-sidebar" id="nav-sidebar">
+                <div class="close-nav-btn" id="close-nav-btn">
+                    <i class="fas fa-times"></i>
+                </div>
+                
+                <div class="nav-header">Table of Contents</div>
+                
+                <div class="space-y-2">
+                    <div class="font-medium py-2 px-4 rounded-lg cursor-pointer hover:bg-gray-100 active:bg-gray-200">Cover Page</div>
+                    <div class="font-medium py-2 px-4 rounded-lg cursor-pointer hover:bg-gray-100 active:bg-gray-200">Preface</div>
+                    <div class="bg-gray-100 font-semibold py-2 px-4 rounded-lg">Chapter 1: The Art of Letterforms</div>
+                    <div class="pl-6 space-y-2 mt-2">
+                        <div class="py-2 px-4 rounded-lg cursor-pointer hover:bg-gray-100 active:bg-gray-200">History of Typography</div>
+                        <div class="py-2 px-4 rounded-lg cursor-pointer hover:bg-gray-100 active:bg-gray-200">Type Classification</div>
+                        <div class="py-2 px-4 rounded-lg cursor-pointer hover:bg-gray-100 active:bg-gray-200">Anatomy of Type</div>
+                    </div>
+                    <div class="font-medium py-2 px-4 rounded-lg cursor-pointer hover:bg-gray-100 active:bg-gray-200">Chapter 2: Readability & Legibility</div>
+                    <div class="font-medium py-2 px-4 rounded-lg cursor-pointer hover:bg-gray-100 active:bg-gray-200">Chapter 3: Typographic Hierarchy</div>
+                    <div class="font-medium py-2 px-4 rounded-lg cursor-pointer hover:bg-gray-100 active:bg-gray-200">Chapter 4: Typesetting Principles</div>
+                    <div class="font-medium py-2 px-4 rounded-lg cursor-pointer hover:bg-gray-100 active:bg-gray-200">Chapter 5: Digital Typography</div>
+                    <div class="font-medium py-2 px-4 rounded-lg cursor-pointer hover:bg-gray-100 active:bg-gray-200">Bibliography</div>
+                    <div class="font-medium py-2 px-4 rounded-lg cursor-pointer hover:bg-gray-100 active:bg-gray-200">Index</div>
+                </div>
+                
+                <div class="mt-8">
+                    <div class="nav-header">Bookmarks</div>
+                    <div class="flex items-center gap-3 mt-4 text-blue-500">
+                        <i class="fas fa-bookmark"></i>
+                        <div>Page 24: Visual Hierarchy Examples</div>
+                    </div>
+                    <div class="flex items-center gap-3 mt-3 text-blue-500">
+                        <i class="fas fa-bookmark"></i>
+                        <div>Page 87: Grid Systems</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Bottom Toolbar -->
+            <div class="toolbar toolbar-bottom" id="bottom-toolbar">
+                <button class="toolbar-btn" id="bookmark-btn">
+                    <i class="far fa-bookmark toolbar-icon"></i>
+                </button>
+                <button class="toolbar-btn" id="font-btn">
+                    <i class="fas fa-text-height toolbar-icon"></i>
+                </button>
+                <button class="toolbar-btn" id="search-btn">
+                    <i class="fas fa-search toolbar-icon"></i>
+                </button>
+                <button class="toolbar-btn" id="theme-btn">
+                    <i class="fas fa-moon toolbar-icon"></i>
+                </button>
+                <button class="toolbar-btn" id="menu-btn">
+                    <i class="fas fa-ellipsis-h toolbar-icon"></i>
+                </button>
+            </div>
+            
+            <!-- Page Progress Slider -->
+            <div class="progress-container" id="progress-container">
+                <div class="slider-container">
+                    <div class="page-indicator">Page 6</div>
+                    <input type="range" min="1" max="10" value="6" class="slider" id="page-slider">
+                    <div class="page-indicator text-right">10</div>
+                </div>
+            </div>
+            
+            <!-- Font Controls -->
+            <div class="font-controls" id="font-controls">
+                <button class="font-btn" id="font-decrease">A-</button>
+                <div class="font-value" id="font-value">16px</div>
+                <button class="font-btn" id="font-increase">A+</button>
+                <button class="font-btn" id="line-height-btn">
+                    <i class="fas fa-align-left"></i>
+                </button>
+            </div>
+            
+            <!-- Bookmark Effect -->
+            <div class="bookmark-overlay" id="bookmark-overlay">
+                <i class="fas fa-bookmark"></i>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Wait for DOM content to load
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM elements
+            const splashScreen = document.getElementById('splash-screen');
+            const libraryView = document.getElementById('library-view');
+            const readerView = document.getElementById('reader-view');
+            const selectPdfBtn = document.getElementById('select-pdf-btn');
+            const backBtn = document.getElementById('back-btn');
+            const tocBtn = document.getElementById('toc-btn');
+            const navSidebar = document.getElementById('nav-sidebar');
+            const closeNavBtn = document.getElementById('close-nav-btn');
+            const fontBtn = document.getElementById('font-btn');
+            const fontControls = document.getElementById('font-controls');
+            const fontDecrease = document.getElementById('font-decrease');
+            const fontIncrease = document.getElementById('font-increase');
+            const fontSizeValue = document.getElementById('font-value');
+            const themeBtn = document.getElementById('theme-btn');
+            const bookmarkBtn = document.getElementById('bookmark-btn');
+            const bookmarkOverlay = document.getElementById('bookmark-overlay');
+            const pageSlider = document.getElementById('page-slider');
+            const progressContainer = document.getElementById('progress-container');
+            const bookContainer = document.getElementById('book-container');
+            const pageTexts = document.querySelectorAll('.page-text');
+            const lineHeightBtn = document.getElementById('line-height-btn');
+            const pageLeft = document.getElementById('page-left');
+            const pageRight = document.getElementById('page-right');
+            const singlePage = document.getElementById('single-page');
+            
+            // Hide splash screen after 2 seconds
+            setTimeout(() => {
+                splashScreen.style.opacity = '0';
+                splashScreen.style.transform = 'scale(1.1)';
+                
+                setTimeout(() => {
+                    splashScreen.style.display = 'none';
+                }, 800);
+            }, 2000);
+            
+            // Toggle views
+            selectPdfBtn.addEventListener('click', function() {
+                libraryView.classList.add('hidden');
+                readerView.classList.add('active');
+            });
+            
+            backBtn.addEventListener('click', function() {
+                readerView.classList.remove('active');
+                libraryView.classList.remove('hidden');
+            });
+            
+            // Toggle navigation sidebar
+            tocBtn.addEventListener('click', function() {
+                navSidebar.classList.add('active');
+            });
+            
+            closeNavBtn.addEventListener('click', function() {
+                navSidebar.classList.remove('active');
+            });
+            
+            // Toggle theme (light/dark mode)
+            themeBtn.addEventListener('click', function() {
+                document.body.classList.toggle('dark-mode');
+                
+                if (document.body.classList.contains('dark-mode')) {
+                    themeBtn.innerHTML = '<i class="fas fa-sun toolbar-icon"></i>';
+                } else {
+                    themeBtn.innerHTML = '<i class="fas fa-moon toolbar-icon"></i>';
+                }
+            });
+            
+            // Toggle font controls
+            fontBtn.addEventListener('click', function() {
+                fontControls.classList.toggle('hidden');
+                progressContainer.classList.toggle('hidden');
+            });
+            
+            // Font size adjustments
+            const fontSizes = [
+                { class: 'text-xs', value: '12px' },
+                { class: 'text-sm', value: '14px' },
+                { class: 'text-base', value: '16px' },
+                { class: 'text-lg', value: '18px' },
+                { class: 'text-xl', value: '20px' },
+                { class: 'text-2xl', value: '22px' }
+            ];
+            
+            let currentSize = 2;
+            
+            // Set initial font size
+            updateFontSize();
+            
+            function updateFontSize() {
+                pageTexts.forEach(text => {
+                    // Remove all font size classes
+                    fontSizes.forEach(size => {
+                        text.classList.remove(size.class);
+                    });
+                    
+                    // Add current size class
+                    text.classList.add(fontSizes[currentSize].class);
+                });
+                
+                fontSizeValue.textContent = fontSizes[currentSize].value;
+            }
+            
+            fontDecrease.addEventListener('click', function() {
+                if (currentSize > 0) {
+                    currentSize--;
+                    updateFontSize();
+                }
+            });
+            
+            fontIncrease.addEventListener('click', function() {
+                if (currentSize < fontSizes.length - 1) {
+                    currentSize++;
+                    updateFontSize();
+                }
+            });
+            
+            // Line height adjustments
+            const lineHeights = ['leading-tight', 'leading-normal', 'leading-loose'];
+            let currentLineHeight = 1;
+            
+            lineHeightBtn.addEventListener('click', function() {
+                pageTexts.forEach(text => {
+                    // Remove all line height classes
+                    lineHeights.forEach(lh => {
+                        text.classList.remove(lh);
+                    });
+                    
+                    // Cycle through line heights
+                    currentLineHeight = (currentLineHeight + 1) % lineHeights.length;
+                    text.classList.add(lineHeights[currentLineHeight]);
+                });
+            });
+            
+            // Bookmark functionality
+            bookmarkBtn.addEventListener('click', function() {
+                bookmarkOverlay.classList.add('active');
+                
+                setTimeout(() => {
+                    bookmarkOverlay.classList.remove('active');
+                }, 1200);
+            });
+            
+            // Page slider
+            pageSlider.addEventListener('input', function() {
+                const pageText = "Page " + this.value;
+                document.querySelectorAll('.page-indicator')[0].textContent = pageText;
+            });
+            
+            // Tap to hide/show toolbars and controls
+            bookContainer.addEventListener('click', function(e) {
+                if (e.target.classList.contains('page') || 
+                    e.target.classList.contains('page-text') ||
+                    e.target.closest('.page-text')) {
+                    
+                    // Toggle toolbars
+                    const topToolbar = document.getElementById('top-toolbar');
+                    const bottomToolbar = document.getElementById('bottom-toolbar');
+                    
+                    topToolbar.classList.toggle('hidden');
+                    bottomToolbar.classList.toggle('hidden');
+                    
+                    // Hide secondary UI elements
+                    progressContainer.classList.add('hidden');
+                    fontControls.classList.add('hidden');
+                    
+                    // Also hide navigation sidebar
+                    navSidebar.classList.remove('active');
+                }
+            });
+            
+            // Page turning simulation (click on sides of the page)
+            pageLeft.addEventListener('click', function(e) {
+                if (e.clientX < window.innerWidth * 0.2) {
+                    animatePageTurn('left');
+                }
+            });
+            
+            pageRight.addEventListener('click', function(e) {
+                if (e.clientX > window.innerWidth * 0.8) {
+                    animatePageTurn('right');
+                }
+            });
+            
+            singlePage.addEventListener('click', function(e) {
+                if (e.clientX < window.innerWidth * 0.2) {
+                    animatePageTurn('left');
+                }
+                if (e.clientX > window.innerWidth * 0.8) {
+                    animatePageTurn('right');
+                }
+            });
+            
+            function animatePageTurn(direction) {
+                const container = document.querySelector('.page-container');
+                const animatingPage = document.createElement('div');
+                
+                // Create page content based on direction
+                if (direction === 'right') {
+                    animatingPage.innerHTML = pageRight.innerHTML;
+                    animatingPage.className = 'page-animating';
+                    animatingPage.style.left = '50%';
+                } else {
+                    animatingPage.innerHTML = pageLeft.innerHTML;
+                    animatingPage.className = 'page-animating';
+                    animatingPage.style.right = '50%';
+                    animatingPage.style.transform = 'rotateY(-180deg)';
+                }
+                
+                container.appendChild(animatingPage);
+                
+                // Add animation class
+                setTimeout(() => {
+                    animatingPage.style.animation = 'pageTurn 0.8s ease-out';
+                    
+                    // Remove element after animation
+                    setTimeout(() => {
+                        animatingPage.remove();
+                    }, 800);
+                }, 10);
+            }
+            
+            // Add highlight to text
+            document.addEventListener('dblclick', function(e) {
+                const selection = window.getSelection();
+                if (selection.toString().trim() !== '') {
+                    const range = selection.getRangeAt(0);
+                    const highlight = document.createElement('span');
+                    highlight.className = 'highlight';
+                    highlight.textContent = selection.toString();
+                    range.deleteContents();
+                    range.insertNode(highlight);
+                    selection.removeAllRanges();
+                    
+                    // Add note popup
+                    setTimeout(() => {
+                        highlight.classList.add('active');
+                    }, 200);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
