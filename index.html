@@ -797,7 +797,7 @@
         }
     </style>
 </head>
-<body class="light-mode">
+<body> class="light-mode">
     <div class="mobile-container">
         <!-- Splash Screen -->
         <div class="splash-screen" id="splash-screen">
@@ -1246,5 +1246,214 @@
             });
         });
     </script>
+    <!-- PDF.js library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+
+<!-- Main script -->
+<script>
+// Initialize PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+// DOM Elements
+const splashScreen = document.getElementById('splash-screen');
+const libraryView = document.getElementById('library-view');
+const readerView = document.getElementById('reader-view');
+const selectPdfBtn = document.getElementById('select-pdf-btn');
+const backBtn = document.getElementById('back-btn');
+const themeBtn = document.getElementById('theme-btn');
+const tocBtn = document.getElementById('toc-btn');
+const navSidebar = document.getElementById('nav-sidebar');
+const closeNavBtn = document.getElementById('close-nav-btn');
+const fontControls = document.getElementById('font-controls');
+const fontBtn = document.getElementById('font-btn');
+const fontDecrease = document.getElementById('font-decrease');
+const fontIncrease = document.getElementById('font-increase');
+const fontValue = document.getElementById('font-value');
+const lineHeightBtn = document.getElementById('line-height-btn');
+const pageSlider = document.getElementById('page-slider');
+const bookmarkBtn = document.getElementById('bookmark-btn');
+const bookmarkOverlay = document.getElementById('bookmark-overlay');
+
+// State
+let currentPdf = null;
+let currentPage = 1;
+let totalPages = 0;
+let fontSize = 16;
+let lineHeight = 1.8;
+let isDarkMode = false;
+
+// Hide splash screen after 2 seconds
+setTimeout(() => {
+    splashScreen.style.opacity = '0';
+    setTimeout(() => splashScreen.style.display = 'none', 800);
+}, 2000);
+
+// PDF selection
+selectPdfBtn.addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/pdf';
+    
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const fileReader = new FileReader();
+            fileReader.onload = async function() {
+                const typedarray = new Uint8Array(this.result);
+                try {
+                    const pdf = await pdfjsLib.getDocument(typedarray).promise;
+                    currentPdf = pdf;
+                    totalPages = pdf.numPages;
+                    pageSlider.max = totalPages;
+                    
+                    // Load first page
+                    currentPage = 1;
+                    await loadPage(currentPage);
+                    
+                    // Show reader view
+                    libraryView.classList.add('hidden');
+                    readerView.classList.add('active');
+                } catch (error) {
+                    console.error('Error loading PDF:', error);
+                    alert('Error loading PDF file');
+                }
+            };
+            fileReader.readAsArrayBuffer(file);
+        }
+    };
+    
+    input.click();
+});
+
+// Back button
+backBtn.addEventListener('click', () => {
+    readerView.classList.remove('active');
+    libraryView.classList.remove('hidden');
+});
+
+// Theme toggle
+themeBtn.addEventListener('click', () => {
+    document.body.classList.toggle('dark-mode');
+    isDarkMode = document.body.classList.contains('dark-mode');
+    themeBtn.querySelector('i').classList.toggle('fa-sun');
+    themeBtn.querySelector('i').classList.toggle('fa-moon');
+});
+
+// Navigation sidebar
+tocBtn.addEventListener('click', () => {
+    navSidebar.classList.add('active');
+});
+
+closeNavBtn.addEventListener('click', () => {
+    navSidebar.classList.remove('active');
+});
+
+// Font controls
+fontBtn.addEventListener('click', () => {
+    fontControls.classList.toggle('hidden');
+});
+
+fontDecrease.addEventListener('click', () => {
+    if (fontSize > 12) {
+        fontSize -= 2;
+        updateFontSize();
+    }
+});
+
+fontIncrease.addEventListener('click', () => {
+    if (fontSize < 24) {
+        fontSize += 2;
+        updateFontSize();
+    }
+});
+
+lineHeightBtn.addEventListener('click', () => {
+    lineHeight = lineHeight === 1.8 ? 2 : lineHeight === 2 ? 1.5 : 1.8;
+    updateLineHeight();
+});
+
+function updateFontSize() {
+    fontValue.textContent = `${fontSize}px`;
+    document.querySelectorAll('.page-text').forEach(el => {
+        el.style.fontSize = `${fontSize}px`;
+    });
+}
+
+function updateLineHeight() {
+    document.querySelectorAll('.page-text').forEach(el => {
+        el.style.lineHeight = lineHeight;
+    });
+}
+
+// Page navigation
+pageSlider.addEventListener('input', async (e) => {
+    currentPage = parseInt(e.target.value);
+    await loadPage(currentPage);
+});
+
+// Bookmark handling
+bookmarkBtn.addEventListener('click', () => {
+    bookmarkBtn.querySelector('i').classList.toggle('fas');
+    bookmarkBtn.querySelector('i').classList.toggle('far');
+    bookmarkOverlay.classList.toggle('active');
+    
+    setTimeout(() => {
+        bookmarkOverlay.classList.remove('active');
+    }, 1500);
+});
+
+// PDF page loading
+async function loadPage(pageNumber) {
+    if (!currentPdf) return;
+    
+    try {
+        const page = await currentPdf.getPage(pageNumber);
+        const viewport = page.getViewport({ scale: 1.5 });
+        
+        // Get text content
+        const textContent = await page.getTextContent();
+        const textItems = textContent.items;
+        
+        // Update page text
+        const pageText = textItems.map(item => item.str).join(' ');
+        document.getElementById('page-left').textContent = pageText;
+        document.getElementById('single-page').textContent = pageText;
+        
+        // Update page indicator
+        document.querySelector('.page-indicator').textContent = `Page ${pageNumber}`;
+        
+    } catch (error) {
+        console.error('Error loading page:', error);
+    }
+}
+
+// Touch handling for toolbars
+let lastTapTime = 0;
+const bookContainer = document.getElementById('book-container');
+const topToolbar = document.getElementById('top-toolbar');
+const bottomToolbar = document.getElementById('bottom-toolbar');
+const progressContainer = document.getElementById('progress-container');
+
+bookContainer.addEventListener('click', (e) => {
+    const currentTime = new Date().getTime();
+    const tapLength = currentTime - lastTapTime;
+    
+    if (tapLength < 500 && tapLength > 0) {
+        // Double tap
+        topToolbar.classList.toggle('hidden');
+        bottomToolbar.classList.toggle('hidden');
+        progressContainer.classList.toggle('hidden');
+        fontControls.classList.add('hidden');
+    }
+    
+    lastTapTime = currentTime;
+});
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    updateFontSize();
+    updateLineHeight();
+});
+</script>
 </body>
 </html>
